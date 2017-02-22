@@ -25,5 +25,8 @@ duel_timeover: "&f&l++++++++=++++++++\n&6> Playing time &6over&6, no winners !\n
 ###############
 #Arena messages
 ###############
-arena_alreadyinarena: "&4You are already in a arena !"
+arena_1_set: "&aPlayer 1 spawnpoint set!"
+arena_2_set: "&aPlayer 2 spawnpoint set!"
+arena_created: "&aArena successfully set!"
+arena_alreadyinarena: "&4You are already in an arena !"
 ...
