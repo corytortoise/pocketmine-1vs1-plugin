@@ -67,21 +67,32 @@ class ArenaManager{
 		$task->arenaManager = $this;
 		$this->signRefreshTaskHandler = $this->getServer()->getScheduler()->scheduleRepeatingTask($task, self::SIGN_REFRESH_DELAY * 20); //Using a Static Function(Server::getInstance is bad practise! Fixed this.
 	}
-	
+	/*For some reason, $this->getServer() is used a lot without extending PluginBase. Caused errors, and this fixes it. */
+   public function getServer() {
+      return Server::getInstance();
+   }
+
 	/**
 	 * Create arenas
 	 */
 	public function parseArenaPositions(array $arenaPositions) {
 		foreach ($arenaPositions as $n => $arenaPosition) {
-			Server::getInstance()->loadLevel($arenaPosition[3]);
-			if(($level = $this->getServer()->getLevelByName($arenaPosition[3])) === null){ //Again, bad practise by using a static function(Server::getInstance), Fixed this.
-				$this->getServer()->getLogger()->error("[1vs1] - " . $arenaPosition[3] . " is not loaded. Arena " . $n . " is disabled."); //Again, bad practise by using a static function(Server::getInstance), Fixed this.
+			Server::getInstance()->loadLevel(Server::getInstance()->getLevelByName($arenaPosition[5]));
+			if(($level = $this->getServer()->getLevelByName($arenaPosition[5])) === null){ 
+				$this->getServer()->getLogger()->error("[1vs1] - " . $arenaPosition[5] . " is not loaded. Arena " . $n . " is disabled."); 
 			}
 			else{
-				$newArenaPosition = new Position($arenaPosition[0], $arenaPosition[1], $arenaPosition[2], $level);
-				$newArena = new Arena($newArenaPosition, $this);
-				array_push($this->arenas, $newArena);
-				$this->getServer()->getLogger()->debug("[1vs1] - Arena " . $n . " loaded at position " . $newArenaPosition->__toString()); //Again, bad practise by using a static function(Server::getInstance), Fixed this.
+  /* Added support for custom spawnpoints.
+    * Probably not the best method of saving/loading positions.
+    */
+  //TODO: Try to optimize
+				$spawn1 = new Location($arenaPosition[0][0], $arenaPosition[0][1], $arenaPosition[0][2], $level);
+             $spawn2 = new Location($arenaPosition[1][0], $arenaPosition[1][1], $arenaPosition[1][2], $level);
+				$newArena = new Arena($spawn1, $spawn2, $this);
+				array_push($this->arenas, $newArena); 
+/* Do we really need all this debug stuff? */
+				$this->getServer()->getLogger()->debug("[1vs1] - Arena " . $n . " loaded at position " . $newArenaPosition->__toString()); 
+
 			}
 		}
 	}	
@@ -147,36 +158,42 @@ class ArenaManager{
 	/**
 	 * Launches new rounds if necessary
 	 */
-	private function launchNewRounds(){
-		
+    private function launchNewRounds(){
 		// Check that there is at least 2 players in the queue
 		if(count($this->queue) < 2){
-			$this->getServer()->getLogger()->debug("There is not enough players to start a duel : " . count($this->queue)); //Again, bad practise by using a static function(Server::getInstance), Fixed this.
-			return;
+                 Server::getInstance()->getLogger()->debug("There is not enough players to start a duel : " . count($this->queue));
+                 return;
 		}
 		
 		// Check if there is any arena free (not active)
-		$this->getServer()->getLogger()->debug("Check ".  count($this->arenas) . " arenas"); //Again, bad practise by using a static function(Server::getInstance), Fixed this.
-		
+		Server::getInstance()->getLogger()->debug("Check ".  count($this->arenas) . " arenas");
 		$freeArena = NULL;
+		$freeArenaCount = 0;
 		foreach ($this->arenas as $arena){
 			if(!$arena->active){
-				$freeArena = $arena;
-				break;
+				$freeArenaCount++;
+				$freeArena[$freeArenaCount] = $arena;
+				
 			}
+			
 		}
-		
 		if($freeArena == NULL){
-			$this->getServer()->getLogger()->debug("[1vs1] - No free arena found"); //Again, bad practise by using a static function(Server::getInstance), Fixed this.
+			Server::getInstance()->getLogger()->debug("[1vs1] - No free arena found");
 			return;
+			
 		}
-		
-		// Send the players into the arena (and remove them from queues)
-		$roundPlayers = array();
-		array_push($roundPlayers, array_shift($this->queue), array_shift($this->queue));
-		$this->getServer->getLogger()->debug("[1vs1] - Starting duel : " . $roundPlayers[0]->getName() . " vs " . $roundPlayers[1]->getName()); //Again, bad practise by using a static function(Server::getInstance), Fixed this.
-		$freeArena->startRound($roundPlayers);
-	}
+         //Randomize
+         $freeArenas = count($freeArena);
+         var_dump($freeArenas);
+         $finalArena = mt_rand(1, $freeArenas);
+         var_dump($finalArena);
+         $freeArenafinal = $freeArena[$finalArena];
+         // Send the players into the arena (and remove them from queues)
+         $roundPlayers = array();
+         array_push($roundPlayers, array_shift($this->queue), array_shift($this->queue));
+         Server::getInstance()->getLogger()->debug("[1vs1] - Starting duel : " . $roundPlayers[0]->getName() . " vs " . $roundPlayers[1]->getName());
+         $freeArenafinal->startRound($roundPlayers);
+        }
 	
 	/**
 	 * Allows to be notify when rounds ends
@@ -204,16 +221,16 @@ class ArenaManager{
 	 * Reference a new arena at this location
 	 * @param Location $location for the new Arena
 	 */
-	public function referenceNewArena(Location $location){
+	public function referenceNewArena(Location $spawn1, Location $spawn2){
 		// Create a new arena
-		$newArena = new Arena($location, $this);	
+		$newArena = new Arena($spawn1, $spawn2, $this);	
 		
 		// Add it to the array
 		array_push($this->arenas,$newArena);
 		
 		// Save it to config
 		$arenas = $this->config->arenas;
-		array_push($arenas, [$newArena->position->getX(), $newArena->position->getY(), $newArena->position->getZ(), $newArena->position->getLevel()->getName()]);
+		array_push($arenas, [[$spawn1->getX(), $spawn1->getY(), $spawn1->getZ(), $spawn1->getYaw(), $spawn1->getPitch()], [$spawn2->getX(), $spawn2->getY(), $spawn2->getZ(), $spawn2->getYaw(), $spawn2->getPitch()], $spawn1->getLevel()->getName()]);
 		$this->config->set("arenas", $arenas);
 		$this->config->save();		
 	}

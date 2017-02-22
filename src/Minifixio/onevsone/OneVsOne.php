@@ -8,7 +8,7 @@ use Minifixio\onevsone\ArenaManager;
 use Minifixio\onevsone\EventsManager;
 use Minifixio\onevsone\utils\PluginUtils;
 use Minifixio\onevsone\command\JoinCommand;
-use Minifixio\onevsone\command\ReferenceArenaCommand;
+use Minifixio\onevsone\command\ArenaCommand;
 use pocketmine\utils\Config;
 use pocketmine\utils\TextFormat;
 use pocketmine\Server;
@@ -38,12 +38,15 @@ class OneVsOne extends PluginBase{
     	
     	// Get arena positions from arenas.yml
     	@mkdir($this->getDataFolder());
-    	$this->arenaConfig = new Config($this->getDataFolder()."config.yml", Config::YAML, array());    	
+    	$this->arenaConfig = new Config($this->getDataFolder()."data.yml", Config::YAML, array());    	
 
     	// Load custom messages
     	$this->saveResource("messages.yml");
     	$this->messages = new Config($this->getDataFolder() ."messages.yml");
     	
+    	// Load Config file
+    	$this->saveDefaultConfig();
+
     	$this->arenaManager = new ArenaManager();
     	$this->arenaManager->init($this->arenaConfig);
     	
@@ -57,8 +60,8 @@ class OneVsOne extends PluginBase{
     	$joinCommand = new JoinCommand($this, $this->arenaManager);
     	$this->getServer()->getCommandMap()->register($joinCommand->commandName, $joinCommand);
     	
-    	$referenceArenaCommand = new ReferenceArenaCommand($this, $this->arenaManager);
-    	$this->getServer()->getCommandMap()->register($referenceArenaCommand->commandName, $referenceArenaCommand);    	
+    	$arenaCommand = new ArenaCommand($this, $this->arenaManager);
+    	$this->getServer()->getCommandMap()->register($arenaCommand->commandName, $arenaCommand);    	
     }
     
     public static function getInstance(){
