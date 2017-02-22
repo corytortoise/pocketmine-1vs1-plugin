@@ -29,18 +29,19 @@ class Arena{
 	public $players = array();
 	
 	/** @var Position */
-	public $position;
+	public $spawn1;
+
+	/** @var Position */
+	public $spawn2;
 	
 	/** @var ArenaManager */
 	private $manager;
 	
-	// Roound duration (3min)
-	const ROUND_DURATION = 180;
+   // Default match duration
+	private $duration = 180;
 	
-	const PLAYER_1_OFFSET_X = 5;
-	const PLAYER_2_OFFSET_X = -5;
 	
-	// Variable for stop the round's timer
+	// Timers
 	private $taskHandler;
 	private $countdownTaskHandler;
 
@@ -48,14 +49,16 @@ class Arena{
 	 * Build a new Arena
 	 * @param Position position Base position of the Arena
 	 */
-	public function __construct($position, ArenaManager $manager){
-		$this->position = $position;
+	public function __construct(Location $spawn1, Location $spawn2, ArenaManager $manager){
+		$this->spawn1 = $spawn1;
+       $this->spawn2 = $spawn2;
 		$this->manager = $manager;
+       $this->duration = OneVsOne::getInstance()->getConfig()->get("time-limit") * 60;
 		$this->active = FALSE;
 	}
 	
 	/** 
-	 * Demarre un match.
+	 * Start a match.
 	 * @param Player[] $players
 	 */
 	public function startRound(array $players){
@@ -70,6 +73,10 @@ class Arena{
 		
 		$player1->sendMessage(OneVsOne::getMessage("duel_against") . $player2->getName());
 		$player2->sendMessage(OneVsOne::getMessage("duel_against") . $player1->getName());
+		
+		//imjay addition
+		 $task = new GameTime(OneVsOne::getInstance(), $this);
+		$this->countdownTaskHandler = Server::getInstance()->getScheduler()->scheduleDelayedRepeatingTask($task, 20, 20);
 
 		// Create a new countdowntask
 		$task = new CountDownToDuelTask(OneVsOne::getInstance(), $this);
@@ -85,24 +92,23 @@ class Arena{
 		
 		$player1 = $this->players[0];
 		$player2 = $this->players[1];
-		
-		$pos_player1 = Position::fromObject($this->position, $this->position->getLevel());
-		$pos_player1->x += self::PLAYER_1_OFFSET_X;
-		
-		$pos_player2 = Position::fromObject($this->position, $this->position->getLevel());
-		$pos_player2->x += self::PLAYER_2_OFFSET_X;
-		$player1->teleport($pos_player1, 90, 0);
-		$player2->teleport($pos_player2, -90, 0);
+		$pos_player1 = $this->spawn1;
+		$pos_player2 = $this->spawn2;
+       //Need a new system for turning heads.
+       //Maybe save the yaw and pitch in config?
+		$player1->teleport($pos_player1);
+		$player2->teleport($pos_player2);
 		$this->sparyParticle($player1);
 		$this->sparyParticle($player2);
 		$player1->setGamemode(0);
 		$player2->setGamemode(0);
 		
 		// Give kit
+     if(OneVsOne::getInstance()->getConfig()->get("force-kit") === true) {
 		foreach ($this->players as $player){
 			$this->giveKit($player);
 		}
-		
+    }
 		// Fix start time
 		$this->startTime = new DateTime('now');
 		
@@ -115,7 +121,7 @@ class Arena{
 		// Launch the end round task
 		$task = new RoundCheckTask(OneVsOne::getInstance());
 		$task->arena = $this;
-		$this->taskHandler = Server::getInstance()->getScheduler()->scheduleDelayedTask($task, self::ROUND_DURATION * 20);
+		$this->taskHandler = Server::getInstance()->getScheduler()->scheduleDelayedTask($task, $this->duration * 20);
 	}
 	
 	/**
@@ -128,13 +134,15 @@ class Arena{
 	private function giveKit(Player $player){
 		// Clear inventory
 		$player->getInventory()->clearAll();
-		
+		//TODO: Make Kits configurable
 		// Give sword, food and armor
 		$player->getInventory()->addItem(Item::get(ITEM::IRON_SWORD));
 		$player->getInventory()->addItem(Item::get(ITEM::BREAD));
+		$player->getInventory()->addItem(Item::get(ITEM::BOW));
+		$player->getInventory()->addItem(Item::get(Item::ARROW, 0, 12));
 		$player->getInventory()->setItemInHand(Item::get(ITEM::IRON_SWORD), $player);
 		
-		// Pur the armor on the player
+		// Put the armor on the player
 		$player->getInventory()->setHelmet(Item::get(302, 0, 1));
 		$player->getInventory()->setChestplate(Item::get(303, 0, 1));
 		$player->getInventory()->setLeggings(Item::get(304, 0, 1));
@@ -152,7 +160,7 @@ class Arena{
     * @param Player $loser
     */
    public function onPlayerDeath(Player $loser){
-   	
+   	   //TODO: Add stats?
 		// Finish the duel and teleport the winner at spawn
    		if($loser == $this->players[0]){
    			$winner = $this->players[1];
@@ -175,20 +183,26 @@ class Arena{
    		
    		// Reset arena
    		$this->reset();
+   		// Back to gamemode 1
+      // Why?
+   		$winner->setGamemode(1);
+   		$loser->setGamemode(1);
    }
 
    /**
     * Reset the Arena to current state
     */
    private function reset(){
-   		// Put active a rena after the duel
+   		// Put active arena after the duel
    		$this->active = FALSE;
+     if(OneVsOne::getInstance()->getConfig()->get("force-kit") === true) {
    		foreach ($this->players as $player){
    			$player->getInventory()->setItemInHand(new Item(Item::AIR,0,0));
    			$player->getInventory()->clearAll();
    			$player->getInventory()->sendArmorContents($player);
    			$player->getInventory()->sendContents($player);
    			$player->getInventory()->sendHeldItem($player);
+          }
    		}
    		$this->players = array();
    		$this->startTime = NULL;
@@ -218,6 +232,8 @@ class Arena{
    			$player->sendMessage(OneVsOne::getMessage("duel_timeover"));
    			$player->sendMessage(TextFormat::BOLD . "++++++++=++++++++");
    			$player->removeAllEffects();
+   			$player1->setGamemode(1);
+			$player2->setGamemode(1);
    		}
    		
    		// Reset arena
