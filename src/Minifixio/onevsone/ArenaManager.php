@@ -40,6 +40,8 @@ class ArenaManager{
 	 */
 	public function init(Config $config){
 		PluginUtils::logOnConsole(TextFormat::GREEN . "Init". TextFormat::RED . " ArenaManager");
+		//Static function, bad bad, yada yada. It fixes the issue for now.
+		$this->server = Server::getInstance();
 		$this->config = $config;
 		
 		if(!$this->config->arenas){
@@ -73,15 +75,15 @@ class ArenaManager{
 	 */
 	public function parseArenaPositions(array $arenaPositions) {
 		foreach ($arenaPositions as $n => $arenaPosition) {
-			Server::getInstance()->loadLevel($arenaPosition[3]);
-			if(($level = $this->getServer()->getLevelByName($arenaPosition[3])) === null){ //Again, bad practise by using a static function(Server::getInstance), Fixed this.
-				$this->getServer()->getLogger()->error("[1vs1] - " . $arenaPosition[3] . " is not loaded. Arena " . $n . " is disabled."); //Again, bad practise by using a static function(Server::getInstance), Fixed this.
+			$this->getServer()->loadLevel($arenaPosition[3]);
+			if(($level = $this->getServer()->getLevelByName($arenaPosition[3])) === null){
+				$this->getServer()->getLogger()->error("[1vs1] - " . $arenaPosition[3] . " is not loaded. Arena " . $n . " is disabled.");
 			}
 			else{
 				$newArenaPosition = new Position($arenaPosition[0], $arenaPosition[1], $arenaPosition[2], $level);
 				$newArena = new Arena($newArenaPosition, $this);
 				array_push($this->arenas, $newArena);
-				$this->getServer()->getLogger()->debug("[1vs1] - Arena " . $n . " loaded at position " . $newArenaPosition->__toString()); //Again, bad practise by using a static function(Server::getInstance), Fixed this.
+				$this->getServer()->getLogger()->debug("[1vs1] - Arena " . $n . " loaded at position " . $newArenaPosition->__toString());
 			}
 		}
 	}	
@@ -93,7 +95,7 @@ class ArenaManager{
 		PluginUtils::logOnConsole(TextFormat::GREEN . "Load signs... " . TextFormat::RED . count($signPositions) . " signs");
 		foreach ($signPositions as $n => $signPosition) {
 			Server::getInstance()->loadLevel($signPosition[3]);
-			if(($level = $this->getServer()->getLevelByName($signPosition[3])) !== null){ //Again, bad practise by using a static function(Server::getInstance), Fixed this.
+			if(($level = $this->getServer()->getLevelByName($signPosition[3])) !== null){
 				$newSignPosition = new Position($signPosition[0], $signPosition[1], $signPosition[2], $level);
 				$tile = $level->getTile($newSignPosition);
 				if($tile != null){
@@ -112,6 +114,10 @@ class ArenaManager{
 			}
 		}
 	}	
+	
+	public function getServer() {
+		return $this->server;
+	}
 	
 	/**
 	 * Add player into the queue
