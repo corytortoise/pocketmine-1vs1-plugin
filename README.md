@@ -3,6 +3,8 @@
 ### Description:
 You want to make 1vs1s on your MCPE server ? This plugin is for you !
 
+*Minifixio is inactive. I had planned to take over this plugin, but instead I will be writing a new version from scratch. You can find it over [here](https://github.com/corytortoise/DuelsPE). In the mean time, I will patch this plugin as needed, since a lot of people use it.*
+
 Cool things:
 -> Multi arenas system
 -> Auto queue management
